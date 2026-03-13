@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id         String    @id @default(uuid())
+  name       String
+  subdomain  String    @unique
+  active     Boolean   @default(true)
+  created_at DateTime  @default(now())
+  
+  users      User[]
+  payments   Payment[]
+}
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+  PARENT
+}
+
+model User {
+  id            String    @id @default(uuid())
+  school_id     String?
+  email         String    @unique
+  password_hash String
+  role          Role      @default(PARENT)
+  created_at    DateTime  @default(now())
+
+  school        School?   @relation(fields: [school_id], references: [id])
+  profile       Profile?
+  payments      Payment[]
+}
+
+model Profile {
+  id         String   @id @default(uuid())
+  user_id    String   @unique
+  first_name String
+  last_name  String
+  phone      String?
+
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+model Payment {
+  id                  String   @id @default(uuid())
+  school_id           String
+  user_id             String
+  amount              Float
+  status              String   // e.g., 'PENDING', 'SUCCESS', 'FAILED'
+  razorpay_order_id   String?
+  razorpay_payment_id String?
+  created_at          DateTime @default(now())
+
+  school              School   @relation(fields: [school_id], references: [id])
+  user                User     @relation(fields: [user_id], references: [id])
+}
