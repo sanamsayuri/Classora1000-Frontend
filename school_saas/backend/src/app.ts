@@ -7,6 +7,7 @@ dotenv.config();
 import authRoutes from './modules/auth/routes';
 import userRoutes from './modules/users/routes';
 import schoolRoutes from './modules/schools/routes';
+import paymentRoutes from './modules/payments/routes';
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/schools', schoolRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Health Check
 app.get('/health', (req: Request, res: Response) => {
