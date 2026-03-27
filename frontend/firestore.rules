@@ -9,35 +9,21 @@ service cloud.firestore {
       return request.auth.uid;
     }
 
-    // Users collection: one doc per Firebase UID
+    // Users collection: users can read their own data.
+    // Writes should go through the secure backend APIs to prevent tampering with approvalStatus and roles.
     match /users/{uid} {
-      allow read, create, update, delete: if signedIn() && uid == userId();
+      allow read: if signedIn() && uid == userId();
+      allow write: if false; // Only backend admin SDK can write
     }
 
-    // Schools collection: only allow access to the user's own school
-    match /schools/{schoolId} {
-      allow read: if signedIn() &&
-        exists(/databases/$(database)/documents/users/$(userId())) &&
-        get(/databases/$(database)/documents/users/$(userId())).data.schoolId == schoolId;
-
-      // Allow creating/updating the user's own school doc (onboarding).
-      allow create, update: if signedIn() &&
-        exists(/databases/$(database)/documents/users/$(userId())) == false &&
-        request.resource.data.createdBy == userId();
-
-      // If user doc already exists, allow update only when school matches.
-      allow update: if signedIn() &&
-        exists(/databases/$(database)/documents/users/$(userId())) &&
-        get(/databases/$(database)/documents/users/$(userId())).data.schoolId == schoolId;
-
-      // Prevent deletions from client
-      allow delete: if false;
+    match /organizations/{docId} {
+      allow read: if signedIn() && get(/databases/$(database)/documents/users/$(userId())).data.approvalStatus == 'approved';
+      allow write: if false;
     }
 
-    // Generic pattern for any school-scoped collections (optional, extend later)
-    match /{collectionId}/{docId} {
+    // Catch-all: block access by default
+    match /{document=**} {
       allow read, write: if false;
     }
   }
 }
-

@@ -15,10 +15,15 @@ export interface AppUserDoc {
   email: string;
   name: string;
   photoURL?: string | null;
-  schoolId: string;
-  role: UserRole;
+  schoolId?: string;
+  role?: UserRole;
+  roleRequested?: string;
+  roleAssigned?: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  organizationName?: string;
+  phoneNumber?: string;
   createdAt: unknown;
-  updatedAt: unknown;
+  updatedAt?: unknown;
 }
 
 interface AuthContextValue {
@@ -31,7 +36,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const PUBLIC_PATHS = new Set<string>(['/', '/login', '/register']);
+const PUBLIC_PATHS = new Set<string>(['/', '/login', '/register', '/pending-approval']);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -57,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!snap.exists()) {
           setAppUser(null);
           setLoading(false);
-          if (pathname !== '/onboarding') router.replace('/onboarding');
+          if (pathname !== '/register') router.replace('/register');
           return;
         }
 
@@ -65,19 +70,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAppUser(userDoc);
         setLoading(false);
 
-        if (pathname === '/login' || pathname === '/onboarding' || pathname === '/register') {
-          // Route users to the correct dashboard based on role.
+        if (pathname === '/login' || pathname === '/register') {
+          // Check approval status first
+          if (userDoc.approvalStatus === 'pending' || userDoc.approvalStatus === 'rejected') {
+            router.replace('/pending-approval');
+            return;
+          }
+
+          // Route approved users to the correct dashboard based on assigned role.
+          const actualRole = userDoc.roleAssigned || userDoc.role;
           const targetPath =
-            userDoc.role === 'SUPER_ADMIN'
+            actualRole === 'SUPER_ADMIN' || actualRole === 'admin' || actualRole === 'ADMIN'
               ? '/super-admin'
-              : userDoc.role === 'ADMIN'
-                ? '/school-admin'
-                : userDoc.role === 'TEACHER'
-                  ? '/teacher'
-                  : userDoc.role === 'PARENT'
-                    ? '/parent'
-                    : '/school-admin';
+              : actualRole === 'TEACHER' || actualRole === 'teacher'
+                ? '/teacher'
+                : '/school-admin'; // default fallback
           router.replace(targetPath);
+        } else if (
+          (userDoc.approvalStatus === 'pending' || userDoc.approvalStatus === 'rejected') &&
+          pathname !== '/pending-approval' &&
+          !PUBLIC_PATHS.has(pathname)
+        ) {
+          router.replace('/pending-approval');
         }
       } catch {
         setAppUser(null);
