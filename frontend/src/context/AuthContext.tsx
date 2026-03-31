@@ -1,33 +1,25 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from '@/lib/firebase';
-import { usePathname, useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { User } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 
-export type SchoolType = 'SCHOOL' | 'COLLEGE' | 'COACHING';
-
-export type UserRole = 'ADMIN' | 'TEACHER' | 'PARENT' | 'STUDENT' | 'SUPER_ADMIN';
+export type UserRole = 'admin' | 'teacher' | 'staff';
 
 export interface AppUserDoc {
-  uid: string;
+  id: string;
   email: string;
-  name: string;
-  photoURL?: string | null;
-  schoolId?: string;
-  role?: UserRole;
-  roleRequested?: string;
-  roleAssigned?: string;
-  approvalStatus?: 'pending' | 'approved' | 'rejected';
-  organizationName?: string;
-  phoneNumber?: string;
-  createdAt: unknown;
-  updatedAt?: unknown;
+  full_name: string;
+  role: UserRole;
+  organization_name: string;
+  approved: boolean;
+  is_super_admin: boolean;
+  created_at: string;
 }
 
 interface AuthContextValue {
-  firebaseUser: User | null;
+  supabaseUser: User | null;
   appUser: AppUserDoc | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
@@ -36,89 +28,94 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const PUBLIC_PATHS = new Set<string>(['/', '/login', '/register', '/pending-approval']);
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = createClient();
   const router = useRouter();
-  const pathname = usePathname();
 
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
   const [appUser, setAppUser] = useState<AppUserDoc | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      setFirebaseUser(u);
+    let mounted = true;
 
-      if (!u) {
-        setAppUser(null);
-        setLoading(false);
-        if (!PUBLIC_PATHS.has(pathname)) router.replace('/login');
+    async function fetchSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        if (mounted) {
+          setSupabaseUser(null);
+          setAppUser(null);
+          setLoading(false);
+        }
         return;
       }
 
-      try {
-        const snap = await getDoc(doc(db, 'users', u.uid));
-        if (!snap.exists()) {
-          setAppUser(null);
-          setLoading(false);
-          if (pathname !== '/register') router.replace('/register');
-          return;
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (mounted) {
+        if (!error && userData) {
+          setSupabaseUser(session.user);
+          setAppUser(userData as AppUserDoc);
+        } else {
+           // Handle the case where auth.users exists but public.users isn't created yet or there is an issue.
+           setSupabaseUser(session.user);
+           setAppUser(null);
         }
-
-        const userDoc = snap.data() as AppUserDoc;
-        setAppUser(userDoc);
         setLoading(false);
+      }
+    }
 
-        if (pathname === '/login' || pathname === '/register') {
-          // Check approval status first
-          if (userDoc.approvalStatus === 'pending' || userDoc.approvalStatus === 'rejected') {
-            router.replace('/pending-approval');
-            return;
-          }
+    fetchSession();
 
-          // Route approved users to the correct dashboard based on assigned role.
-          const actualRole = userDoc.roleAssigned || userDoc.role;
-          const targetPath =
-            actualRole === 'SUPER_ADMIN' || actualRole === 'admin' || actualRole === 'ADMIN'
-              ? '/super-admin'
-              : actualRole === 'TEACHER' || actualRole === 'teacher'
-                ? '/teacher'
-                : '/school-admin'; // default fallback
-          router.replace(targetPath);
-        } else if (
-          (userDoc.approvalStatus === 'pending' || userDoc.approvalStatus === 'rejected') &&
-          pathname !== '/pending-approval' &&
-          !PUBLIC_PATHS.has(pathname)
-        ) {
-          router.replace('/pending-approval');
-        }
-      } catch {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setSupabaseUser(null);
         setAppUser(null);
-        setLoading(false);
-        if (pathname !== '/login') router.replace('/login');
+        router.push('/login');
+      } else if (session && event === 'SIGNED_IN') {
+        setSupabaseUser(session.user);
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        if (userData) {
+           setAppUser(userData as AppUserDoc);
+        }
+        router.refresh();
       }
     });
 
-    return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, pathname]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, router]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      firebaseUser,
+      supabaseUser,
       appUser,
       loading,
       signInWithGoogle: async () => {
-        googleProvider.setCustomParameters({ prompt: 'select_account' });
-        await signInWithPopup(auth, googleProvider as GoogleAuthProvider);
+        await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/dashboard`
+          }
+        });
       },
       logout: async () => {
-        await signOut(auth);
-        router.replace('/login');
+        await supabase.auth.signOut();
+        router.push('/login');
       },
     }),
-    [firebaseUser, appUser, loading, router]
+    [supabaseUser, appUser, loading, supabase, router]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -129,4 +126,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-
