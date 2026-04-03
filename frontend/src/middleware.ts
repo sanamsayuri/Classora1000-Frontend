@@ -1,7 +1,7 @@
 import { updateSession } from '@/lib/supabase/middleware';
 import { type NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_ROUTES = new Set(['/', '/login']);
+const PUBLIC_ROUTES = new Set(['/', '/login', '/register']);
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request);
@@ -21,32 +21,43 @@ export async function middleware(request: NextRequest) {
 
   // Next steps: Ensure user is approved and onboarded
   if (user) {
-    // We fetch user record to check 'approved' and 'is_super_admin' and onboarding
-    const { data: userData } = await supabase
-      .from('users')
-      .select('approved, is_super_admin, organization_name, role')
-      .eq('id', user.id)
-      .single();
+    try {
+      // Fetch user record from our Prisma backend via internal API
+      const res = await fetch(new URL('/api/user/me', request.url), {
+        headers: {
+          cookie: request.headers.get('cookie') || '', // pass cookies for auth
+        }
+      });
 
-    if (userData) {
-      if (!userData.organization_name) {
-         if (path !== '/onboarding') {
-             return NextResponse.redirect(new URL('/onboarding', request.url));
-         }
-      } else if (!userData.approved) {
-         if (path !== '/pending-approval') {
-             return NextResponse.redirect(new URL('/pending-approval', request.url));
-         }
+      if (res.ok) {
+        const { user: prismaUser } = await res.json();
+        
+        if (!prismaUser.role) {
+           if (path !== '/onboarding') {
+               return NextResponse.redirect(new URL('/onboarding', request.url));
+           }
+        } else if (!prismaUser.approved) {
+           if (path !== '/pending-approval') {
+               return NextResponse.redirect(new URL('/pending-approval', request.url));
+           }
+        } else {
+           // User is approved and onboarded
+           if (path === '/onboarding' || path === '/pending-approval') {
+               return NextResponse.redirect(new URL('/dashboard', request.url));
+           }
+           
+           if (path.startsWith('/super-admin') && !prismaUser.isSuperAdmin) {
+              return NextResponse.redirect(new URL('/dashboard', request.url));
+           }
+        }
       } else {
-         // User is approved and onboarded
-         if (path === '/onboarding' || path === '/pending-approval') {
-             return NextResponse.redirect(new URL('/dashboard', request.url));
-         }
-         
-         if (path.startsWith('/super-admin') && !userData.is_super_admin) {
-            return NextResponse.redirect(new URL('/dashboard', request.url));
-         }
+        // User not in Prisma DB yet, redirect to onboarding or let callback handle it
+        if (path !== '/onboarding' && path !== '/login' && path !== '/register') {
+          return NextResponse.redirect(new URL('/onboarding', request.url));
+        }
       }
+    } catch (e) {
+      console.error('Middleware fetch error:', e);
     }
   }
 

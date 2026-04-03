@@ -23,16 +23,16 @@ export default function OnboardingPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          full_name: fullName,
-          role: role,
-          organization_name: organization,
-        })
-        .eq('id', user.id);
+      const res = await fetch('/api/user/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, role, organization }),
+      });
 
-      if (updateError) throw updateError;
+      if (!res.ok) {
+         const errorData = await res.json();
+         throw new Error(errorData.error || 'Failed to update profile');
+      }
 
       // Force refresh so middleware routes them properly
       router.refresh();

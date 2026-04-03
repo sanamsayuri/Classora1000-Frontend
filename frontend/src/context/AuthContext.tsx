@@ -23,6 +23,8 @@ interface AuthContextValue {
   appUser: AppUserDoc | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -51,20 +53,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-        
       if (mounted) {
-        if (!error && userData) {
-          setSupabaseUser(session.user);
-          setAppUser(userData as AppUserDoc);
-        } else {
-           // Handle the case where auth.users exists but public.users isn't created yet or there is an issue.
-           setSupabaseUser(session.user);
-           setAppUser(null);
+        setSupabaseUser(session.user);
+        try {
+          const res = await fetch('/api/user/me');
+          if (res.ok) {
+            const { user: prismaUser } = await res.json();
+            setAppUser(prismaUser);
+          } else {
+            setAppUser(null);
+          }
+        } catch (e) {
+          setAppUser(null);
         }
         setLoading(false);
       }
@@ -76,17 +76,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (event === 'SIGNED_OUT' || !session) {
         setSupabaseUser(null);
         setAppUser(null);
-        router.push('/login');
-      } else if (session && event === 'SIGNED_IN') {
+        // router.push('/login'); // Removed to avoid conflict with middleware
+      } else if (session && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         setSupabaseUser(session.user);
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        if (userData) {
-           setAppUser(userData as AppUserDoc);
-        }
+        try {
+          const res = await fetch('/api/user/me');
+          if (res.ok) {
+            const { user: prismaUser } = await res.json();
+            setAppUser(prismaUser);
+          }
+        } catch (e) {}
         router.refresh();
       }
     });
@@ -106,9 +105,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/dashboard`
+            redirectTo: `${window.location.origin}/api/auth/callback`
           }
         });
+      },
+      signInWithEmail: async (email, password) => {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) throw error;
+      },
+      signUpWithEmail: async (email, password, fullName) => {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
+        });
+        if (error) throw error;
       },
       logout: async () => {
         await supabase.auth.signOut();

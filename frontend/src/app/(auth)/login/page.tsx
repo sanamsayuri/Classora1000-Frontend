@@ -4,19 +4,34 @@ import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signInWithEmail } = useAuth();
   const [error, setError] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleGoogle = async () => {
     setError('');
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // Redirect is handled by AuthProvider based on Firestore user existence.
     } catch (e: any) {
       setError(e?.message || 'Google sign-in failed');
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsEmailLoading(true);
+    try {
+      await signInWithEmail(email, password);
+    } catch (e: any) {
+      setError(e?.message || 'Sign in failed. Please check your credentials.');
+      setIsEmailLoading(false);
     }
   };
 
@@ -89,10 +104,10 @@ export default function LoginPage() {
               <span>SaaS Portal</span>
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-gray-900 via-gray-800 to-gray-500 pb-1">
-              Sign in with Google
+              Welcome Back
             </h1>
             <p className="text-gray-500 text-sm font-medium">
-              Start managing your school or college with ease.
+              Sign in to manage your school or college.
             </p>
           </div>
 
@@ -106,34 +121,79 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Google Sign-In Button */}
-            <div className="flex justify-center">
-              {isGoogleLoading ? (
-                <div className="flex items-center gap-3 px-6 py-10 border border-gray-200 rounded-xl bg-gray-50 w-full justify-center">
-                  <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
-                  <span className="text-sm text-gray-500">Connecting to Google...</span>
+            <form onSubmit={handleEmailSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 ml-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="name@school.com"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition bg-gray-50/50 text-gray-900"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between ml-1">
+                  <label className="text-sm font-medium text-gray-700">Password</label>
+                  <a href="#" className="text-xs text-blue-600 hover:underline">Forgot password?</a>
                 </div>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition bg-gray-50/50 text-gray-900"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isEmailLoading}
+                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
+              >
+                {isEmailLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : 'Sign In'}
+              </button>
+            </form>
+
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-400 font-medium tracking-wider">Or continue with</span>
+              </div>
+            </div>
+
+            {/* Google Sign-In Button */}
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={isGoogleLoading}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition text-sm font-medium text-gray-800 shadow-sm disabled:opacity-50"
+            >
+              {isGoogleLoading ? (
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
               ) : (
-                <button
-                  type="button"
-                  onClick={handleGoogle}
-                  className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 transition text-sm font-medium text-gray-800 shadow-sm"
-                >
+                <>
                   <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                     <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.74 32.91 29.269 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.957 3.043l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
                     <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.656 16.108 19.003 12 24 12c3.059 0 5.842 1.154 7.957 3.043l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
                     <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.197l-6.19-5.238C29.164 35.091 26.707 36 24 36c-5.248 0-9.704-3.065-11.27-7.456l-6.52 5.02C9.52 39.556 16.227 44 24 44z"/>
                     <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.75 2.127-2.231 3.927-4.094 5.238l.003-.002 6.19 5.238C36.97 39.152 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
                   </svg>
-                  Continue with Google
-                </button>
+                  Google
+                </>
               )}
-            </div>
+            </button>
           </div>
           
-          <div className="mt-8 text-center">
-            <p className="text-xs text-gray-500">
-              By continuing, you agree to our Terms of Service and Privacy Policy.
+          <div className="mt-8 text-center text-sm">
+            <p className="text-gray-500">
+              Don&apos;t have an account? <a href="/register" className="text-blue-600 font-bold hover:underline">Create an account</a>
             </p>
           </div>
         </div>
