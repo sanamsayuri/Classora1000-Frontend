@@ -17,14 +17,14 @@ import { useAuth } from '@/context/AuthContext';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { appUser, firebaseUser, loading, logout } = useAuth();
+  const { appUser, supabaseUser, loading, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
-  if (!firebaseUser) {
+  if (!supabaseUser) {
     router.replace('/login');
     return null;
   }

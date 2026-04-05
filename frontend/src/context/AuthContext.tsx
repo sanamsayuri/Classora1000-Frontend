@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
-export type UserRole = 'admin' | 'teacher' | 'staff';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'SCHOOL_ADMIN' | 'TEACHER' | 'PARENT' | 'STUDENT' | 'admin' | 'teacher' | 'staff';
 
 export interface AppUserDoc {
   id: string;
@@ -56,7 +56,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (mounted) {
         setSupabaseUser(session.user);
         try {
-          const res = await fetch('/api/user/me');
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+          const res = await fetch(`${backendUrl}/users/me`, {
+             headers: { Authorization: `Bearer ${session.access_token}` }
+          });
           if (res.ok) {
             const { user: prismaUser } = await res.json();
             setAppUser(prismaUser);
@@ -80,7 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (session && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
         setSupabaseUser(session.user);
         try {
-          const res = await fetch('/api/user/me');
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+          const res = await fetch(`${backendUrl}/users/me`, {
+             headers: { Authorization: `Bearer ${session.access_token}` }
+          });
           if (res.ok) {
             const { user: prismaUser } = await res.json();
             setAppUser(prismaUser);

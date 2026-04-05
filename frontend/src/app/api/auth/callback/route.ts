@@ -13,8 +13,9 @@ export async function GET(request: Request) {
     if (!error) {
        const { data: { user } } = await supabase.auth.getUser();
        if (user) {
-          // Call internal API /api/user/create as required by architectural guidelines
-          await fetch(`${origin}/api/user/create`, {
+          // Call external backend API /api/users/create
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+          await fetch(`${backendUrl}/users/create`, {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ id: user.id, email: user.email })

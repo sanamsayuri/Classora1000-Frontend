@@ -22,10 +22,14 @@ export async function middleware(request: NextRequest) {
   // Next steps: Ensure user is approved and onboarded
   if (user) {
     try {
-      // Fetch user record from our Prisma backend via internal API
-      const res = await fetch(new URL('/api/user/me', request.url), {
+      // Fetch user record from the external Express backend
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+
+      const res = await fetch(`${backendUrl}/users/me`, {
         headers: {
-          cookie: request.headers.get('cookie') || '', // pass cookies for auth
+          'Authorization': `Bearer ${token}`
         }
       });
 

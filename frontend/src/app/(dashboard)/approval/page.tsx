@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSearchParams } from 'next/navigation';
 
 function ApprovalAction() {
-  const { firebaseUser, appUser, loading: authLoading } = useAuth();
+  const { supabaseUser, appUser, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
   const action = searchParams.get('action'); // 'approve' or 'reject'
   const targetUid = searchParams.get('uid');
@@ -18,7 +18,7 @@ function ApprovalAction() {
       // Don't run if auth is loading or if we already have a result
       if (authLoading || result || loading) return;
 
-      if (!firebaseUser) {
+      if (!supabaseUser) {
         setResult({ success: false, message: 'You must be logged in to perform this action. Please log in and click the link again.' });
         return;
       }
@@ -35,8 +35,11 @@ function ApprovalAction() {
 
       setLoading(true);
       try {
-        const token = await firebaseUser.getIdToken();
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+        const { createClient } = require('@/lib/supabase/client');
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
         const endpoint = action === 'approve' ? '/approval/approve-user' : '/approval/reject-user';
 
         const response = await fetch(`${API_URL}${endpoint}`, {
@@ -63,7 +66,7 @@ function ApprovalAction() {
     };
 
     performAction();
-  }, [firebaseUser, authLoading, action, targetUid, result, loading]);
+  }, [supabaseUser, authLoading, action, targetUid, result, loading]);
 
   if (authLoading || loading) {
     return (
