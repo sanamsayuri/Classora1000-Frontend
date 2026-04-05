@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SchoolXP - SaaS Educational ERP System
 
 SchoolXP is a comprehensive multi-tenant SaaS ERP system designed for educational institutions. It provides a robust and centralized platform to manage day-to-day school operations, including user administration, student enrollment, attendance tracking, fee management, examination grading, and communication.
@@ -98,3 +99,6 @@ npm run dev
 ```
 
 The Next.js application will be available at [http://localhost:3000](http://localhost:3000).
+=======
+# Classora1000-Frontend
+>>>>>>> 58ee3559a184135f2cec845388170e13a1943a92
