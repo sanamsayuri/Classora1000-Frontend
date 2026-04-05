@@ -1,0 +1,7 @@
+﻿src/app/(dashboard)/approval/page.tsx(8,11): error TS2339: Property 'firebaseUser' does not exist on type 'AuthContextValue'.
+src/app/(dashboard)/layout.tsx(20,20): error TS2339: Property 'firebaseUser' does not exist on type 'AuthContextValue'.
+src/app/(dashboard)/layout.tsx(45,12): error TS2367: This comparison appears to be unintentional because the types 'UserRole' and '"SUPER_ADMIN"' have no overlap.
+src/app/(dashboard)/layout.tsx(51,12): error TS2367: This comparison appears to be unintentional because the types 'UserRole' and '"ADMIN"' have no overlap.
+src/app/(dashboard)/layout.tsx(77,12): error TS2367: This comparison appears to be unintentional because the types 'UserRole' and '"TEACHER"' have no overlap.
+src/app/(dashboard)/layout.tsx(88,12): error TS2367: This comparison appears to be unintentional because the types 'UserRole' and '"PARENT"' have no overlap.
+src/lib/prisma.ts(1,30): error TS2307: Cannot find module '@prisma/client' or its corresponding type declarations.
